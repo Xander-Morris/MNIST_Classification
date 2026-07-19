@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import confusion_matrix, f1_score, precision_recall_curve, precision_score, recall_score, roc_curve
-from sklearn.model_selection import StratifiedKFold, cross_val_predict, cross_val_score 
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, cross_val_predict, cross_val_score 
 from sklearn.base import clone
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.neighbors import KNeighborsClassifier
@@ -134,6 +134,32 @@ def _run_multilabel_classification(X_train, y_train, some_digit):
     y_train_knn_pred = cross_val_predict(knn_clf, X_train, y_multilabel, cv=3)
     print(f1_score(y_multilabel, y_train_knn_pred, average="macro"))
 
+def _run_kneighbors_classifier(X_train, y_train, X_test, y_test):
+    # No scaling: MNIST pixels share one scale (0-255). Scaling amplifies
+    # near-zero-variance border pixels into noise and drags KNN accuracy down.
+    knn = KNeighborsClassifier(n_jobs=-1)
+    # 5. Define the parameter grid to search over
+    param_grid = {
+        'n_neighbors': [3, 4, 5, 6], # small k tends to win on MNIST
+        'weights': ['uniform', 'distance'],       # Weight function used in prediction
+    }
+
+    # 6. Initialize GridSearchCV
+    # cv=5 means 5-fold cross-validation; n_jobs=-1 utilizes all CPU cores
+    grid_search = GridSearchCV(estimator=knn, param_grid=param_grid, cv=5, scoring='accuracy', n_jobs=-1)
+
+    # 7. Fit the model to find the best hyperparameters
+    grid_search.fit(X_train, y_train)
+
+    # 8. Extract and print results
+    print(f"Best Hyperparameters: {grid_search.best_params_}")
+    print(f"Best Cross-Validation Score: {grid_search.best_score_:.4f}")
+
+    # 9. Evaluate the best model on test data
+    best_model = grid_search.best_estimator_
+    test_accuracy = best_model.score(X_test, y_test)
+    print(f"Test Set Accuracy: {test_accuracy:.4f}")
+
 if __name__ == "__main__":
     (X_train, y_train, X_test, y_test, some_digit) = _setup_data()
     """
@@ -142,7 +168,8 @@ if __name__ == "__main__":
     _plot_precision_recall_vs_threshold(y_train_5, y_scores)
     _plot_roc_curves(y_train_5, y_scores)
     """
-    _run_svm_classifier(X_train, y_train, some_digit)
-    _run_ovr_classifier(X_train, y_train, some_digit)
-    _run_sgd_classifier(X_train, y_train, some_digit)
-    _run_multilabel_classification(X_train, y_train, some_digit)
+    #_run_svm_classifier(X_train, y_train, some_digit)
+    #_run_ovr_classifier(X_train, y_train, some_digit)
+    #_run_sgd_classifier(X_train, y_train, some_digit)
+    #_run_multilabel_classification(X_train, y_train, some_digit)
+    _run_kneighbors_classifier(X_train, y_train, X_test, y_test)
